@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+#StrawberryCubeOS 1.0.2
+import RPi.GPIO as GPIO
+import os
+import stat
+import sys
+import time
+import datetime as dt
+import urllib.request as urlreq
+import socket
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BOARD)
+GPIO.setup(10, GPIO.IN,  pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(12, GPIO.OUT) #VERDE
+GPIO.setup(11, GPIO.OUT) #ROSSO
+
+GPIO.setup(40, GPIO.OUT) #1
+GPIO.setup(38, GPIO.OUT) #2
+GPIO.setup(36, GPIO.OUT) #3
+GPIO.setup(32, GPIO.OUT) #4
+
+hostname="HOSTNAME"
+ssh_user="USERNAME"
+nas_destination="/home/USER/Destination/"
+
+SDdir = "/media/SD"
+mountDir = "/dev/sda1"
+
+def amIConnected():
+    IPaddress = socket.gethostbyname(socket.gethostname())
+    if IPaddress == "127.0.0.1":
+        return False
+    else:
+        if os.system("ping -c 1 " + hostname) == 0:
+            return True
+        else:
+            return False
+
+def disk_exists(path):
+    try:
+        return stat.S_ISBLK(os.stat(path).st_mode)
+    except:
+        return False
+
+def ledCounter(counter):
+    c = int(counter)
+
+    if c == 1:
+        GPIO.output(40, GPIO.HIGH)#1
+    elif c == 2:
+        GPIO.output(40, GPIO.HIGH) #1
+        GPIO.output(38, GPIO.HIGH) #2
+    elif c == 3:
+        GPIO.output(40, GPIO.HIGH) #1
+        GPIO.output(38, GPIO.HIGH) #2
+        GPIO.output(36, GPIO.HIGH) #3
+    elif c == 4:
+        GPIO.output(40, GPIO.HIGH) #1
+        GPIO.output(38, GPIO.HIGH) #2
+        GPIO.output(36, GPIO.HIGH) #3
+        GPIO.output(32, GPIO.HIGH) #4
+    elif c == 0:
+        GPIO.output(40, GPIO.LOW) #1
+        GPIO.output(38, GPIO.LOW) #2
+        GPIO.output(36, GPIO.LOW) #3
+        GPIO.output(32, GPIO.LOW) #4
+
+
+def ledR(status):
+    if status == True:
+        GPIO.output(11, GPIO.HIGH)
+    elif status == False:
+        GPIO.output(11, GPIO.LOW)
+
+def ledG(status):
+    if status == True:
+        GPIO.output(12, GPIO.HIGH)
+    else:
+        GPIO.output(12, GPIO.LOW)
+
+def getAllSD(p):
+    SDFiles = []
+    for r, d, f in os.walk(p):
+        for file in f:
+            SDFiles.append(os.path.join(r, file))
+    return SDFiles
+
+def greenLights():
+    GPIO.output(11, GPIO.LOW)
+    GPIO.output(12, GPIO.HIGH)
+    ledCounter(1)
+    time.sleep(0.1)
+    ledCounter(2)
+    time.sleep(0.1)
+    ledCounter(3)
+    time.sleep(0.1)
+    ledCounter(4)
+    time.sleep(0.1)
+    ledCounter(4)
+    time.sleep(0.1)
+    ledCounter(3)
+    time.sleep(0.1)
+    ledCounter(2)
+    time.sleep(0.1)
+    ledCounter(1)
+    time.sleep(0.1)
+    ledCounter(0)
+
+
+
+def testLed():
+    GPIO.output(12, GPIO.HIGH)
+    GPIO.output(11, GPIO.HIGH)
+
+    time.sleep(1)
+
+    GPIO.output(11, GPIO.LOW)
+    GPIO.output(12, GPIO.HIGH)
+    ledCounter(1)
+    time.sleep(0.1)
+    ledCounter(2)
+    time.sleep(0.1)
+    ledCounter(3)
+    time.sleep(0.1)
+    ledCounter(4)
+    time.sleep(0.1)
+    ledCounter(4)
+    time.sleep(0.1)
+    ledCounter(3)
+    time.sleep(0.1)
+    ledCounter(2)
+    time.sleep(0.1)
+    ledCounter(1)
+    time.sleep(0.1)
+    ledCounter(0)
+
+def inWork(x):
+    if x == True:
+        GPIO.output(11,GPIO.HIGH)
+        GPIO.output(12,GPIO.LOW)
+    else:
+        GPIO.output(11, GPIO.LOW)
+        GPIO.output(12, GPIO.HIGH)
+
+def errorWork():
+    i=0
+    while(i<=3):
+        GPIO.output(12, GPIO.LOW)
+        GPIO.output(11,GPIO.HIGH)
+        time.sleep(0.4)
+        GPIO.output(11,GPIO.LOW)
+        time.sleep(0.4)
+        i=i+1
+    begin()
+
+def transferFiles():
+    inWork(True)
+    nowDate = dt.datetime.now()
+    x = nowDate.strftime("%Y-%m-%d-%H%M%S")
+    folderName = "SD-" + x
+
+    if os.path.isdir(SDdir):
+        try:
+            os.system("sudo umount "+ SDdir)
+            os.system("sudo mount "+mountDir+" "+SDdir)
+        except Exception as e:
+            print("Error: "+ e)
+            errorWork()
+    else:
+        os.system("mkdir "+SDdir)
+        try:
+            os.system("sudo mount "+mountDir+" " + SDdir)
+        except:
+            print("Error during mount SD")
+            errorWork()
+
+    try:
+        inWork(True)
+        SDFiles = getAllSD(SDdir)
+        SDnumber = len(SDFiles)
+        x = 0
+        ledR(False)
+        home = "/home/pi"
+        if os.path.exists(home + folderName) == False:
+            dire = "ssh "+ssh_user+"@"+hostname+" \"mkdir " + nas_destination + folderName+"\""
+            os.system(dire)
+        for files in SDFiles:
+            inWork(True)
+            y = x/SDnumber * 4
+            print(str(int(y+1)) + " out of 4")
+            if files:
+                try:
+                    ledCounter(int(y+1))
+                    if amIConnected() == True:
+                        os.system("scp " + files + " "+ssh_user+"@"+hostname+":" + nas_destination + " + folderName + "/")
+                        os.system("rm "+files)
+                        print(files + " removed.")
+                        x+=1
+                    else:
+                        errorWork()
+                except Exception as e:
+                    print("Error during copy")
+                    print(e)
+        os.system("sudo umount " + SDdir)
+        print("SD unmounted")
+        inWork(False)
+        ledCounter(0)
+    except Exception as e:
+        print("Reading error")
+        print(e)
+        inWork(False)
+        errorWork()
+
+
+    try:
+        inWork(True)
+        print("Strawberry power")
+        comando = "ssh "+ssh_user+"@"+hostname+" \"swb -eR +"+ nas_destination + folderName + " -R\""
+        os.system(comando)
+        inWork(False)
+        print("End and ready")
+    except Exception as e:
+        print(e)
+        print("Error during the execution of Strawberry")
+        inWork(False)
+        errorWork()
+
+def menuScreen():
+    print("Strawberry Cube OS 1.0.4 Apr 2021 Jonio")
+    print("ready")
+
+def begin():
+    i=True
+    menuScreen()
+    counter = 0
+    pressed = False
+
+    while i:
+        time.sleep(0.23)
+        inWork(False)
+        clickType=0
+
+        while(GPIO.input(10) == GPIO.HIGH):
+            counter = counter + 1
+            print(counter)
+            time.sleep(0.15)
+
+        if(counter >= 1 and counter <= 29):
+            inWork(True)
+            print("Pushed")
+            if amIConnected() == True:
+                print("yes")
+                greenLights()
+                if disk_exists("/dev/sda1"):
+                    print("Yes DISK")
+                    transferFiles()
+                    counter=0
+                else:
+                    counter=0
+                    errorWork()
+        elif(counter>=30):
+            os.system("sudo poweroff")
+                   
+try:
+    testLed()
+    begin()
+except KeyboardInterrupt:
+    GPIO.output(11, GPIO.LOW)
+    GPIO.output(12, GPIO.LOW)
