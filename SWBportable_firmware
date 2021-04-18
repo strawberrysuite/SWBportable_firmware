@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#strawberry_firmware 1.0.2
+#strawberry_firmware 1.0.4
 import RPi.GPIO as GPIO
 import os
 import stat
