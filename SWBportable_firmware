@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 #strawberry_firmware 1.0.4
+
+#LIBRERIE
+
+#<editor-fold desc="Librerie">
 import RPi.GPIO as GPIO
 import os
 import stat
@@ -8,24 +12,34 @@ import time
 import datetime as dt
 import urllib.request as urlreq
 import socket
+#</editor-fold>
+
 GPIO.setwarnings(False)
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(10, GPIO.IN,  pull_up_down=GPIO.PUD_DOWN)
 GPIO.setup(12, GPIO.OUT) #VERDE
 GPIO.setup(11, GPIO.OUT) #ROSSO
 
+#LED TRASFERIMENTO
+
 GPIO.setup(40, GPIO.OUT) #1
 GPIO.setup(38, GPIO.OUT) #2
 GPIO.setup(36, GPIO.OUT) #3
 GPIO.setup(32, GPIO.OUT) #4
 
+#SET HOSTNAME
+
 hostname="HOSTNAME"
 ssh_user="USERNAME"
 nas_destination="/home/USER/Destination/"
 
+#Directory scheda SD
+
 SDdir = "/media/SD"
 mountDir = "/dev/sda1"
-
+"""
+Funzione utile per capire se l'hostname è connesso alla rete
+"""
 def amIConnected():
     IPaddress = socket.gethostbyname(socket.gethostname())
     if IPaddress == "127.0.0.1":
@@ -35,13 +49,17 @@ def amIConnected():
             return True
         else:
             return False
-
+"""
+Funzione utile per sapere se il disco è montato
+"""
 def disk_exists(path):
     try:
         return stat.S_ISBLK(os.stat(path).st_mode)
     except:
         return False
-
+"""
+Funzione utile per accendere i led verdi di conteggio dello Strawberry Portable
+"""
 def ledCounter(counter):
     c = int(counter)
 
@@ -77,7 +95,9 @@ def ledG(status):
         GPIO.output(12, GPIO.HIGH)
     else:
         GPIO.output(12, GPIO.LOW)
-
+"""
+Funzione utile per ottenere tutti i file della scheda SD
+"""
 def getAllSD(p):
     SDFiles = []
     for r, d, f in os.walk(p):
@@ -106,7 +126,9 @@ def greenLights():
     time.sleep(0.1)
     ledCounter(0)
 
-
+"""
+Funzione utile per accendere uno alla volta tutti i led dello Strawberry Portable
+"""
 
 def testLed():
     GPIO.output(12, GPIO.HIGH)
@@ -133,7 +155,9 @@ def testLed():
     ledCounter(1)
     time.sleep(0.1)
     ledCounter(0)
-
+"""
+Funzione utile a far capire all'utente che la macchina sta operando
+"""
 def inWork(x):
     if x == True:
         GPIO.output(11,GPIO.HIGH)
@@ -141,7 +165,9 @@ def inWork(x):
     else:
         GPIO.output(11, GPIO.LOW)
         GPIO.output(12, GPIO.HIGH)
-
+"""
+Funzione utile a terminare il lavoro in caso di errore e tornare all'inizio
+"""
 def errorWork():
     i=0
     while(i<=3):
@@ -152,7 +178,9 @@ def errorWork():
         time.sleep(0.4)
         i=i+1
     begin()
-
+"""
+Funzione principale di trasferimento dello Strawberry Portable
+"""
 def transferFiles():
     inWork(True)
     nowDate = dt.datetime.now()
